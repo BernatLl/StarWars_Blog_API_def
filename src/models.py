@@ -3,209 +3,293 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 
-                              
-planetsfavourites = db.Table('planetsfavourites',
-    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
-    db.Column('planets_id', db.Integer, db.ForeignKey('planets.id'), primary_key=True))
 
-favourite_character= db.Table('favourite_character',
-    db.Column("user_id", db.Integer, db.ForeignKey("user.id"), primary_key=True),
-    db.Column("people_id", db.Integer, db.ForeignKey("people.id"), primary_key=True))
+
+
+favorite_starship = db.Table('favorite_starship',
+    db.Column('starship_id', db.Integer, db.ForeignKey('starships.id'), primary_key=True),
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+)
+favorite_planet = db.Table('favorite_planet',
+    db.Column('planet_id', db.Integer, db.ForeignKey('planets.id'), primary_key=True),
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+)
+
+#hola esto es una prueba
 
 class User(db.Model):
-    __tablename__: 'user'
+    __tablename__ = "user"
 
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    username = db.Column(db.String(120), unique=True, nullable=False)
-    _password = db.Column(db.String(1000), unique=False, nullable=False)
-    _is_active = db.Column(db.Boolean(), unique=False, nullable=False, default=True)
+    username = db.Column(db.String(250), unique=True, nullable=False)
+    password = db.Column(db.String(250), unique=False, nullable=False)
+    _is_active = db.Column(db.Boolean, nullable=False)
 
-    have_user_planets = db.relationship('Planets', secondary = speciesfavourites, back_populates="have_user_planetsfav")
+    have_fav_starship = db.relationship('Starships', secondary=favorite_starship, lazy = 'subquery', backref = db.backref('user', lazy = True))
+    have_fav_planet = db.relationship('Planets', secondary=favorite_planet, lazy = 'subquery', backref = db.backref('user', lazy = True)) # esto es un array de planetas
 
-    have_char = db.relationship("People", secondary=favourite_character, back_populates="have_user")
-                              
+    def __repr__ (self):
+        return f'this is {self.id} and username: {self.username}'
+
     
-
-    def __repr__(self):
-        return f'User is {self.username}, with {self.email} and {self.id}'
-    
-
     def to_dict(self):
-        return {
-            "id": self.id,
-            "username":self.username,
-            "email": self.email,
-            "planets": [planets.to_dict() for planets in self.have_user_planets],
-            "characters": [people.to_dict() for people in self.have_char] 
+        return{
+            "id":self.id,
+            "username":self.username
         }
+    
 
-    def create(self):
-       db.session.add(self)
-       db.session.commit()
-
-
-    @classmethod
-    def get_by_email(cls, email):
-        account = cls.query.filter_by(email=email).one_or_none()
-        return account
+    
+    def add_fav_starship (self,starship):
+        self.have_fav_starship.append(starship)
+        db.session.commit()
+        return self.have_fav_starship
 
 
     @classmethod
-    def get_by_password(cls, password):
-        secretPass = cls.query.filter_by(password=password).one_or_none()
-        return secretPass
+    def get_by_username(cls, nick_username):
+        user = cls.query.filter_by(username=nick_username).one_or_none()
+        return user
+
+    @classmethod
+    def get_id(cls, id_user):
+        user = cls.query.get(id_user)
+        return user
+    
 
     @classmethod
     def get_all(cls):
         users = cls.query.all()
         return users
-  
+
 
     @classmethod
-    def get_by_id(cls, id):
-        user_id = cls.query.get(id)
-        return user_id
+    def get_all(cls):
+        users = cls.query.all()
+        return users
 
 
-
-
-
-@classmethod
-def get_by_id(cls, id):
-    starship = cls.query.get(id)
-    return starship
-                              
     @classmethod
-    def get_user_by_id(cls,id):
-        user = cls.query.get(id)
+    def get_id(cls, id_user):
+        user = cls.query.get(id_user)
         return user
-    
-    def add_fav_species(self,specie):
-        self.have_user_species.append(specie)
+
+
+    def adding_new_user(self):
+        db.session.add(self)
         db.session.commit()
-        return self.have_user_species
-    
-    def new_fav_people (self,people):
-        self.have_char.append(people)
+        return self
+
+    def add_fav_planet(self, planet):
+        self.have_fav_planet.append(planet)
         db.session.commit()
-        return self.have_char
+        return self.have_fav_planet
+
+
+
+
+class DetailsStarship(db.Model):
+    __tablename__ = 'details_starship'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(250), nullable=False)
+    manufacturer = db.Column(db.String(250), nullable=False) 
+    model = db.Column(db.String(250), nullable=False)
+    cost_in_credits = db.Column(db.FLOAT, nullable=False)
+    max_atmosphering_speed = db.Column(db.FLOAT, nullable=False)
+
+    starship = db.relationship("Starships", back_populates="details")
+
+    def __repr__(self):
+        return f'Starship name is: {self.name}, its manufactured by {self.manufacturer}, model {self.model}, it costs {self.cost_in_credits} credits, and has a max atmospheric speed of {self.max_atmosphering_speed} km/h.'
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "manufacturer": self.manufacturer,
+            "model" : self.model,
+            "cost_in_credits": self.cost_in_credits,
+            "max_atmosphering_speed": self.max_atmosphering_speed  
+        } 
+
+
+    @classmethod
+    def get_id(cls, id_details):
+        detail = cls.query.get(id_details)
+        return detail
+
+
+
+
+class Starships(db.Model):
+    __tablename__ = 'starships'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(250), unique=True, nullable=False)
+    id_details = db.Column(db.Integer, db.ForeignKey("details_starship.id"), unique = True)
+
+    details = db.relationship("DetailsStarship", back_populates="starship")
+    
+
+    def __repr__(self):
+        return f'Starship name is: {self.name} and its properties are {self.details}'
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "id_details": self.details.to_dict()
+            # do not serialize the password, its a security breach
+        }
+
+    @classmethod
+    def get_all_starships(cls):
+        all_starships = cls.query.all()
+        return all_starships
+    
+    @classmethod
+    def get_starship_id(cls, id_starship):
+        starship = cls.query.get(id_starship)
+        return starship
+
+    def create_new_starship(self):
+        db.session.add(self)
+        db.session.commit()
+        return self 
+
+
+
+
+
+    
+class PlanetsProperties (db.Model):
+    __tablename__ = 'planets_properties'
+
+    id = db.Column(db.Integer, primary_key =True)
+    diameter = db.Column(db.FLOAT, nullable=False)
+    rotation = db.Column(db.FLOAT, nullable=False)
+    climate = db.Column(db.String(250), nullable=False)
+    terrain = db.Column(db.String(250), nullable=False)
+    population = db.Column(db.Integer, nullable=False)
+
+    planets = db.relationship("Planets" , back_populates="properties")
+
+    def __repr__ (self):
+        return f'This is the id {self.id}, diameter is {self.diameter} kms, rotation is {self.rotation} kms/s, climate is {self.climate}, terrain is {self.terrain} and population is {self.population} aliens'
+
+
+    def to_dict(self):
+        return{
+            "id": self.id,
+            "diameter": self.diameter,
+            "rotation": self.rotation,
+            "climate": self.climate,
+            "terrain": self.terrain,
+            "population": self.population
+        }
+    @classmethod
+    def get_id(cls, id_properties):
+        propertie = cls.query.get(id_properties)
+        return propertie
 
 
 class Planets(db.Model):
-    __tablename__:"planets"
+    __tablename__ = 'planets'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(250), unique=False, nullable=False)
-    planets_id = db.Column(db.Integer, db.ForeignKey("planets_details.id"), nullable=False)
+    name = db.Column(db.String(250), unique=True, nullable=False)
+    id_properties = db.Column(db.Integer,db.ForeignKey("planets_properties.id"), unique=True)
 
-    planets_have = db.relationship("PlanetsDetails", back_populates = "planets_have_details")
-    have_user_speciesfav= db.relationship('User', secondary= speciesfavourites, back_populates="have_user_species")
+    properties = db.relationship( "PlanetsProperties", back_populates = "planets")
 
     def __repr__(self):
-        return f'Planets: {self.id}, name: {self.name}'
+        return f'Planets is {self.name} and its properties {self.properties} with the id {self.id}'
+
 
     def to_dict(self):
+        print("aqui esta las id properties", self.properties)
         return {
             "id": self.id,
             "name": self.name,
+            "properties": self.properties.to_dict()
         }
-        
-    @classmethod    
-    def get_all(cls):
-        planets = cls.query.all()
-        return planets
+    
+    @classmethod
+    def get_planet_id(cls, id_planet):
+        planet = cls.query.get(id_planet)
+        return planet
 
     @classmethod
-    def get_by_id(cls, id):
-        planets = cls.query.get(id)
-        return planets
-                              
+    def get_planets(cls):
+        all_planets = cls.query.all()
+        return all_planets
+
+    
+    def create_new(self):
+        db.session.add(self)
+        db.session.commit()
+        return self
+
+
+
+
 class People(db.Model):
-    __tablename__: "people"
-
+    __tablename__='people'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(250), unique=False, nullable=False)
-    detail_id = db.Column(db.Integer, db.ForeignKey("people_detail.id"), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-
-    people_has_details = db.relationship("PeopleDetail", back_populates="detail_has_character")
-    have_user = db.relationship("User", secondary=favourite_character, back_populates="have_char")
-
+    name = db.Column(db.String(250), unique=True, nullable=False)
+    id_properties = db.Column(db.Integer, db.ForeignKey("people_properties.id"), unique=True)
+    
+    properties=db.relationship("PeopleProperties", back_populates= "people")
 
     def __repr__(self):
-        return f'People is {self.name}, url: {self.url}'
+        return f' People is :{self.name}, id:{self.id}, properties: {self.id_properties}'
 
-    def serialize(self):
+
+    def to_dict(self):
         return {
             "id": self.id,
-            "name": self.name
+            "name": self.name,
+            "properties": self.id_properties
         }
 
     @classmethod
     def get_all(cls):
-        character_list = cls.query.all()
-        return character_list
+        persons= cls.query.all()
+        return persons
 
+    def create(self):
+        db.session.add(self)
+        db.session.commit()
+        return self
 
     @classmethod
-    def get_by_id(cls, id):
-        character = cls.query.get(id)
-        return character
-       
-                        
-class PlanetsDetails(db.Model):
-    __tablename__:"planets_details"
+    def get_people_id(cls,id_people):
+        people= cls.query.get(id_people)
+        return people
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(250), unique=False, nullable=False)
 
-    planets_have_details = db.relationship('Planets', back_populates="planets_have")
+class PeopleProperties(db.Model):
+    __tablename__='people_properties'
+
+    id=db.Column(db.Integer, primary_key=True)
+    Height=db.Column(db.Integer, nullable=False)
+    Mass=db.Column(db.Integer, nullable=False)
+    Hair_color=db.Column(db.String(250), nullable=False)
+    Birth_year=db.Column(db.DATETIME(timezone=False), nullable=False)
+
+    people=db.relationship("People", back_populates= "properties")
 
     def __repr__(self):
-        return f'PlanetsDetails is {self.classificacion}, name:{self.name}' 
-        
-    def to_dict(self):
-        return {
-            "id" : self.id,
-            "name": self.name,
-        }
-    
-    @classmethod
-    def get_all_planetsdetails(cls):
-        planetsdetails = cls.query.all()
-        return planetsdetails
-    
-    @classmethod
-    def get_by_id_planetsdetails(cls,id):
-        planetsdetails = cls.query.get(id)
-        return planetsdetails
-   
-
-class PeopleDetail(db.Model):
-    __tablename__: "people_detail" 
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(250), unique=False, nullable=False)
-    eye_color = db.Column(db.String(250), unique=False, nullable=False)
-    gender = db.Column(db.String(250), unique=False, nullable=False)
-    homeworld = db.Column(db.String(250), unique=False, nullable=False)
-
-    detail_has_character = db.relationship("People", back_populates="people_has_details")
-
+        return f' Properties are :{self.Height}, id:{self.id}, Hair_color: {self.Hair_color}, Birth_year: {self.Birth_year}'
 
     def to_dict(self):
         return {
             "id": self.id,
-            "name": self.name,
-            "height": self.height,
-            "mass": self.mass,
-            "hair_color": self.hair_color,
-            "skin_color": self.skin_color,
-            "eye_color": self.eye_color,
-            "birth_year": self.birth_year,
-            "gender": self.gender,
-            "created": self.created,
-            "edited": self.edited,
-            "homeworld": self.homeworld
+            "Height": self.Height, 
+            "Hair_color": self.Hair_color, 
+            "Birth_year": self.Birth_year
         }
+
+    @classmethod
+    def get_by_id_propertie(cls, id_properties):
+        propertie=cls.query.get(id_properties)
+        return propertie
